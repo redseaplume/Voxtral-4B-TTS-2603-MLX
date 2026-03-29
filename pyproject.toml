@@ -1,0 +1,22 @@
+[project]
+name = "voxtral-mlx"
+version = "0.1.0"
+description = "Voxtral 4B TTS on MLX for Apple Silicon"
+authors = [
+    { name = "ezra", email = "redseaplume@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "mlx>=0.31.1",
+    "numpy>=2.0.0",
+    "safetensors>=0.4.0",
+    "mistral-common>=1.10.0",
+    "huggingface-hub>=0.20.0",
+]
+
+[project.optional-dependencies]
+voice-convert = ["torch>=2.0.0"]
+
+[build-system]
+requires = ["uv_build>=0.9.28,<0.10.0"]
+build-backend = "uv_build"

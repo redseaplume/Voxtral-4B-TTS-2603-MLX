@@ -96,6 +96,19 @@ def load_backbone(
         if any(key.startswith(p) for p in BACKBONE_PREFIXES):
             backbone_weights[key] = value
 
+    # Detect quantized weights: if any backbone key has .scales, the backbone
+    # is quantized. Call nn.quantize to convert Linear → QuantizedLinear before
+    # loading weights. This is the mlx-lm pattern (utils.py:348-363).
+    has_scales = any(k.endswith(".scales") for k in backbone_weights)
+    if has_scales:
+        nn.quantize(
+            model,
+            group_size=64,
+            bits=4,
+            class_predicate=lambda p, m: f"{p}.scales" in backbone_weights,
+        )
+        logger.info("Backbone: detected quantized weights (4-bit, group_size=64)")
+
     model.load_weights(list(backbone_weights.items()))
     return model
 
@@ -169,6 +182,20 @@ def _process_vocoder_weights(all_weights: dict[str, mx.array]) -> dict[str, mx.a
     return vocoder_weights
 
 
+def _load_vocoder_weights_preprocessed(all_weights: dict[str, mx.array]) -> dict[str, mx.array]:
+    """Load pre-processed vocoder weights (already in MLX format).
+
+    Pre-processed weights have plain .weight keys (no parametrizations.*),
+    conv weights already transposed, and codebook.semantic.embedding precomputed.
+    Just strip the prefix and load directly.
+    """
+    vocoder_weights = {}
+    for key, value in all_weights.items():
+        if key.startswith(VOCODER_PREFIX):
+            vocoder_weights[key[len(VOCODER_PREFIX):]] = value
+    return vocoder_weights
+
+
 def load_vocoder(
     all_weights: dict[str, mx.array],
     args: VocoderArgs | None = None,
@@ -178,7 +205,16 @@ def load_vocoder(
         args = VocoderArgs()
 
     model = Vocoder(args)
-    vocoder_weights = _process_vocoder_weights(all_weights)
+
+    # Detect weight format: raw weights have parametrizations.weight.original0/1
+    # keys from PyTorch weight norm. Pre-processed weights have plain .weight keys.
+    is_raw = any("parametrizations.weight.original0" in k for k in all_weights)
+    if is_raw:
+        vocoder_weights = _process_vocoder_weights(all_weights)
+    else:
+        vocoder_weights = _load_vocoder_weights_preprocessed(all_weights)
+        logger.info("Vocoder: detected pre-processed weights")
+
     model.load_weights(list(vocoder_weights.items()))
     return model
 

@@ -127,6 +127,18 @@ Three model components: backbone, acoustic transformer, and vocoder, ported from
 
 Validated against Mistral's PyTorch reference implementation at each stage.
 
+## Compared to mlx-audio
+
+[mlx-audio](https://github.com/Blaizzy/mlx-audio) is an excellent multi-model audio library that also supports Voxtral TTS. Voxtral-4B-TTS-2603-MLX is a standalone, single-model port with different engineering tradeoffs:
+
+| | **This project** | **mlx-audio** |
+|---|---|---|
+| Backbone | From scratch | mlx-lm LlamaModel wrapper |
+| Tokenizer | `mistral-common` (official) | Custom fallback (official optional) |
+| CFG passes | Batched (single forward call) | Sequential (two calls per step) |
+| PRNG | Explicit key per frame (deterministic) | Global random state |
+| Eval strategy | `mx.eval()` per frame | Lazy (no per-frame eval) |
+
 ## Requirements
 
 - Apple Silicon Mac (M1 or later)
